@@ -11,7 +11,18 @@ jobs:
         with: { distribution: temurin, java-version: 17 }
       - run: npm install
       - run: cp node_modules/html2pdf.js/dist/html2pdf.bundle.min.js www/
+      - run: cp node_modules/xlsx/dist/xlsx.full.min.js www/
       - run: npx cap add android
+      - name: Set app icon
+        run: |
+          R=android/app/src/main/res
+          rm -rf $R/mipmap-anydpi-v26
+          for d in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            n=${d%%:*}; s=${d##*:}
+            convert icon.png -resize ${s}x${s} $R/mipmap-$n/ic_launcher.png
+            cp $R/mipmap-$n/ic_launcher.png $R/mipmap-$n/ic_launcher_round.png
+            cp $R/mipmap-$n/ic_launcher.png $R/mipmap-$n/ic_launcher_foreground.png
+          done
       - run: npx cap sync android
       - run: cd android && chmod +x gradlew && ./gradlew assembleDebug
       - uses: actions/upload-artifact@v4

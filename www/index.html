@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>سیستم تردد</title>
+
+<!-- تنظیمات حالت اپلیکیشن مستقل (PWA) -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="سیستم تردد">
+<meta name="theme-color" content="#f3f0e8">
+
+<!-- ساخت آیکون اختصاصی برنامه (با فرمت SVG خودکار) -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232563eb'/><circle cx='50' cy='50' r='35' fill='none' stroke='%23ffffff' stroke-width='6'/><polyline points='50,25 50,50 65,50' fill='none' stroke='%23ffffff' stroke-width='6' stroke-linecap='round'/></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232563eb'/><circle cx='50' cy='50' r='35' fill='none' stroke='%23ffffff' stroke-width='6'/><polyline points='50,25 50,50 65,50' fill='none' stroke='%23ffffff' stroke-width='6' stroke-linecap='round'/></svg>">
+
+<style>
+@font-face{
+  font-family:'Lotus';
+  src:url('Lotus.woff2') format('woff2'),
+      url('Lotus.ttf') format('truetype');
+  font-weight:normal; font-style:normal;
+}
+
+:root{
+  --bg-light: #f3f0e8;
+  --panel-bg: #f3f0e8;
+  --text-main: #111827;
+  --text-muted: #4b5563;
+  --accent: #2563eb;
+  --green: #10b981;
+  --red: #ef4444;
+  
+  --neu-shadow: 8px 8px 18px #d5d1c6, -8px -8px 18px #ffffff;
+  --neu-shadow-sm: 4px 4px 10px #d5d1c6, -4px -4px 10px #ffffff;
+  --neu-inset: inset 4px 4px 8px #d5d1c6, inset -4px -4px 8px #ffffff;
+}
+
+*{
+  box-sizing:border-box;
+  -webkit-tap-highlight-color:transparent;
+  user-select: none;
+}
+
+body{
+  margin:0; font-family:'Lotus','Vazirmatn',Tahoma,sans-serif;
+  min-height:100vh; color:var(--text-main); padding-bottom:20px;
+  background: var(--bg-light);
+  overflow-x:hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== آیکون منوی همبرگری ===== */
+#hamb{
+  position:fixed; top:1rem; right:1rem; z-index:70;
+  width:2.6rem; height:2.6rem; border-radius:0.8rem;
+  border:none; color:var(--text-main);
+  font-size:1.2rem; cursor:pointer;
+  background: var(--panel-bg);
+  box-shadow: var(--neu-shadow-sm);
+  display: flex; align-items: center; justify-content: center;
+  transition:all .12s ease;
+}
+#hamb:active{
+  box-shadow: var(--neu-inset);
+  transform: scale(0.95);
+}
+
+#menuOverlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.3);
+  backdrop-filter: blur(3px); opacity:0; pointer-events:none; transition:opacity .3s; z-index:75;
+}
+#menuOverlay.on{opacity:1; pointer-events:auto;}
+
+#sideMenu{
+  position:fixed; top:0; right:0; bottom:0; width:min(290px,82vw); z-index:80;
+  background: var(--panel-bg);
+  transform:translateX(105%); transition:transform .3s cubic-bezier(.3,.9,.3,1);
+  padding:4rem 1rem 1.5rem; display:flex; flex-direction:column; gap:1rem;
+  box-shadow:-10px 0 25px rgba(0,0,0,.1);
+}
+#sideMenu.on{transform:none;}
+#sideMenu .mclose{
+  position:absolute; top:1rem; left:1rem;
+  width:2.4rem; height:2.4rem; border-radius:50%;
+  border:none; color:var(--red); background: var(--panel-bg);
+  box-shadow: var(--neu-shadow-sm); font-size:1.1rem; cursor:pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+#sideMenu .mclose:active{ box-shadow: var(--neu-inset); }
+
+#sideMenu button.mitem{
+  text-align:right; font-family:inherit; font-size:1.1rem; color:var(--text-main); font-weight:bold;
+  background: var(--panel-bg);
+  border:none; border-radius:1rem;
+  padding:1rem 1.1rem; cursor:pointer;
+  box-shadow: var(--neu-shadow-sm);
+  transition:all .12s ease;
+}
+#sideMenu button.mitem:active{
+  box-shadow: var(--neu-inset);
+  color: var(--accent);
+}
+
+/* ===== هدر و ساعت ===== */
+header{text-align:center; padding:1.5rem 1rem .4rem;}
+header h1{
+  margin:0; font-size:1.7rem; font-weight:bold; color:var(--text-main);
+}
+
+#liveClock{
+  margin:.8rem auto 0; display:flex; align-items:center; justify-content:center; gap:.4rem;
+  padding:.7rem 1.4rem; border-radius:2rem;
+  background: var(--panel-bg);
+  box-shadow: var(--neu-inset);
+  font-size:1rem; color:var(--accent); font-weight:bold;
+  width: min(100%, 340px);
+}
+
+main{
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  flex: 1;
+}
+
+.tab{display:none;}
+.tab.on{display:block; animation:pop .25s ease-out;}
+@keyframes pop{from{opacity:0; transform:scale(0.98);} to{opacity:1; transform:none;}}
+
+.card{
+  background: var(--panel-bg);
+  border-radius:2rem; padding:1.8rem 1.4rem; margin-top:1.2rem; margin-bottom:1rem;
+  box-shadow: var(--neu-shadow);
+}
+
+/* ============================================================
+   طراحی نیومورفیسم
+   ============================================================ */
+.button-container {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem 0;
+}
+
+.neu-outer-ring {
+  position: relative; width: 220px; height: 220px; border-radius: 50%;
+  background: var(--panel-bg);
+  box-shadow: 12px 12px 24px #d3cfc4, -12px -12px 24px #ffffff;
+  display: flex; align-items: center; justify-content: center;
+  padding: 12px;
+}
+
+.blue-ring-border {
+  position: relative; width: 100%; height: 100%; border-radius: 50%;
+  border: 2px solid #3b82f6;
+  padding: 4px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: inset 0 0 4px rgba(59, 130, 246, 0.3);
+}
+
+.neu-button {
+  position: relative; width: 100%; height: 100%; border-radius: 50%; cursor: pointer;
+  background: var(--panel-bg);
+  box-shadow: 6px 6px 14px #d3cfc4, -6px -6px 14px #ffffff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; font-weight: bold; color: var(--text-main);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.neu-button:active, .neu-button.pressed {
+  box-shadow: inset 5px 5px 10px #d3cfc4, inset -5px -5px 10px #ffffff;
+  transform: scale(0.98);
+}
+
+.status-line{
+  text-align:center; padding:1.2rem; border-radius:1.5rem;
+  background: var(--panel-bg);
+  box-shadow: var(--neu-inset); color:var(--text-main); font-size:1.05rem; line-height:1.9; margin-top:1.5rem;
+  font-weight: 500;
+}
+
+.status-dot {
+  display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin: 0 4px; vertical-align: middle;
+}
+.status-dot.red { background-color: var(--red); box-shadow: 0 0 6px rgba(239, 68, 68, 0.6); }
+.status-dot.green { background-color: var(--green); box-shadow: 0 0 6px rgba(16, 185, 129, 0.6); }
+
+.field{display:flex; flex-direction:column; gap:.3rem; margin-bottom:1rem;}
+label{color:var(--text-main); font-size:1rem; font-weight:bold;}
+
+input, select, textarea{
+  border:none; border-radius:1rem; padding:.85rem 1rem;
+  font-family:inherit; font-size:1.05rem; color:var(--text-main); font-weight:bold;
+  background: var(--panel-bg); outline:none;
+  box-shadow: var(--neu-inset);
+  width: 100%;
+}
+
+.row{display:flex; gap:.7rem; flex-wrap:wrap; align-items:flex-end;}
+.row .field{flex:1; min-width:100px;}
+.pair-row{display:flex; gap:.5rem; align-items:center; margin-bottom:.6rem;}
+.pair-row input{flex:1; min-width:0;}
+.pair-row .pIdx{
+  flex:0 0 auto; width:2.2rem; height:2.2rem; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background: var(--panel-bg);
+  box-shadow: var(--neu-shadow-sm);
+  color:var(--accent); font-size:1rem; font-weight:bold;
+}
+
+.sbtn{
+  border:none; border-radius:1rem; padding:.85rem 1.4rem;
+  font-family:inherit; font-size:1rem; font-weight:bold; cursor:pointer; color:#ffffff;
+  background: var(--accent);
+  box-shadow: var(--neu-shadow-sm);
+  transition:all .1s ease;
+  display: inline-flex; align-items: center; justify-content: center; width: 100%;
+}
+.sbtn:active{
+  box-shadow: var(--neu-inset);
+  transform:scale(0.97);
+}
+.sbtn.gray{
+  background: var(--panel-bg);
+  color: var(--text-main);
+}
+.sbtn.green{ background: var(--green); }
+.sbtn.danger{ background: var(--red); }
+
+.tbl-wrap{
+  overflow-x:auto; border-radius:1.2rem; background:var(--panel-bg); padding:.4rem;
+  box-shadow: var(--neu-inset);
+}
+table{width:100%; border-collapse:separate; border-spacing:0; font-size:.95rem; color:var(--text-main);}
+th,td{border-bottom:1px solid #e0dbcfa0; padding:.7rem .4rem; text-align:center;}
+th{
+  background: var(--panel-bg);
+  color:var(--text-main); font-weight:bold; border-radius:.6rem;
+  box-shadow: var(--neu-shadow-sm);
+}
+
+.totals{display:grid; grid-template-columns:repeat(2, 1fr); gap:.7rem; margin-bottom:1.2rem;}
+.totals div{
+  background: var(--panel-bg);
+  border-radius:1.1rem;
+  padding:.8rem .4rem; text-align:center; color:var(--text-muted); font-size:.9rem; font-weight:bold;
+  box-shadow: var(--neu-shadow-sm);
+}
+.totals b{display:block; color:var(--accent); font-size:1.15rem; margin-top:.2rem;}
+
+.dgroup{
+  background: var(--panel-bg);
+  border-radius:1.3rem;
+  padding:1.1rem; margin-bottom:1.1rem;
+  box-shadow: var(--neu-shadow-sm);
+}
+.dgroup>h3{
+  margin:0 0 1rem; font-size:1.05rem; font-weight:bold; color:var(--text-main);
+  padding-bottom:.5rem; border-bottom:1px dashed #c8c3b5;
+}
+
+.emp-list{display:flex; flex-direction:column; gap:.6rem; margin:.4rem 0 1rem;}
+.emp-item{
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--panel-bg);
+  border-radius:1rem; padding:.7rem 1rem; font-weight:bold;
+  box-shadow: var(--neu-inset);
+}
+.emp-item .del{border:none; background:none; cursor:pointer; font-size:1.1rem; color:var(--red);}
+
+#printArea{display:none;}
+@media print{
+  body{background:#ffffff !important; color:#000000 !important; padding:0;}
+  header,#hamb,#sideMenu,#menuOverlay,main{display:none !important;}
+  #printArea{display:block !important;}
+  @page{size:A4 landscape; margin:10mm;}
+  
+  #printArea, #printArea * {
+    color: #000000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    font-family: 'Lotus', 'Lotus.ttf', Tahoma, sans-serif !important;
+    font-size: 14pt !important;
+    line-height: 1.5 !important;
+  }
+  
+  #printArea table{width:100%; border-collapse:collapse; margin-top:15px; direction:rtl;}
+  #printArea th, #printArea td{
+    border: 1px solid #000000 !important;
+    padding: 6px 8px; text-align: center; color: #000000 !important;
+  }
+  #printArea th{ font-weight: bold; background-color: #f2f2f2 !important; }
+  #printArea .pdf-header{ text-align:center; margin-bottom:20px; border-bottom:2px solid #000; padding-bottom:10px; }
+  #printArea .pdf-header h1{ font-size: 18pt !important; font-weight: bold; margin:0 0 8px 0; }
+  #printArea .pdf-header p{ font-size: 14pt !important; margin:3px 0; }
+}
+</style>
+</head>
+<body>
+
+<button id="hamb" onclick="openMenu()">☰</button>
+<div id="menuOverlay" onclick="closeMenu()"></div>
+<aside id="sideMenu">
+  <button class="mclose" onclick="closeMenu()">✕</button>
+  <button class="mitem" onclick="showTab('today');closeMenu()">🔘 ثبت حضور و غیاب</button>
+  <button class="mitem" onclick="showTab('manual');closeMenu()">✏ ثبت دستی</button>
+  <button class="mitem" onclick="showTab('report');closeMenu()">📊 گزارش ماهانه</button>
+  <button class="mitem" onclick="showTab('manage');closeMenu()">⚙️ تنظیمات و کارمندان</button>
+</aside>
+
+<header>
+  <h1>سیستم تردد</h1>
+  <div id="liveClock">—</div>
+</header>
+
+<main>
+  <!-- صفحه اصلی -->
+  <section id="today" class="tab on">
+    <div class="card">
+      <div class="button-container">
+        <div class="neu-outer-ring">
+          <div class="blue-ring-border">
+            <div id="mainButton" class="neu-button" 
+                 onmousedown="playRealClickSound('down')" 
+                 onmouseup="playRealClickSound('up')" 
+                 ontouchstart="playRealClickSound('down')" 
+                 ontouchend="playRealClickSound('up')" 
+                 onclick="handleButtonClick()">ورود</div>
+          </div>
+        </div>
+      </div>
+      <div class="status-line" id="todayStatus"></div>
+    </div>
+  </section>
+
+  <!-- ثبت دستی -->
+  <section id="manual" class="tab">
+    <div class="card">
+      <h2 id="manualTitle" style="text-align:center; margin-top:0;">ثبت / ویرایش دستی</h2>
+      <div class="field"><label>کارمند</label><select id="mEmp"></select></div>
+      <div class="row">
+        <div class="field"><label>سال</label><select id="mYear"></select></div>
+        <div class="field"><label>ماه</label><select id="mMonth"></select></div>
+        <div class="field"><label>روز</label><select id="mDay"></select></div>
+      </div>
+      <div class="field" style="margin-top:.6rem">
+        <label>نوبت‌های تردد این روز</label>
+        <div id="pairList" style="display:flex; flex-direction:column; gap:.5rem;"></div>
+      </div>
+      <button class="sbtn gray" type="button" onclick="addPairRow()" style="margin-bottom:1rem">➕ افزودن نوبت دیگر</button>
+      <div class="field"><label>توضیح (اختیاری)</label><input id="mNote" placeholder="مثلا: مرخصی / ماموریت"></div>
+      <div class="row" style="gap:.5rem">
+        <button class="sbtn" onclick="saveManual()">💾 ذخیره اطلاعات</button>
+        <button class="sbtn gray" onclick="clearManualForm()">پاک کردن</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- گزارش -->
+  <section id="report" class="tab">
+    <div class="card">
+      <h2 style="text-align:center; margin-top:0;">گزارش ماهانه و خروجی</h2>
+      <div class="row">
+        <div class="field"><label>کارمند</label><select id="repEmp"></select></div>
+        <div class="field"><label>ماه</label><select id="repMonth"></select></div>
+        <div class="field"><label>سال</label><select id="repYear"></select></div>
+      </div>
+      <div class="totals" id="repTotals"></div>
+      <div class="tbl-wrap" id="repTableWrap"></div>
+      <div class="row" style="margin-top:1.2rem; gap:.6rem">
+        <button class="sbtn green" onclick="exportExcel()">⬇ خروجی اکسل</button>
+        <button class="sbtn gray" onclick="exportPDF()">⬇ خروجی PDF</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- تنظیمات -->
+  <section id="manage" class="tab">
+    <div class="card">
+      <h2 style="text-align:center; margin-top:0;">⚙️ تنظیمات و مدیریت</h2>
+
+      <div class="dgroup">
+        <h3>🏢 تنظیمات مجموعه</h3>
+        <div class="field"><label>نام شرکت / کارگاه</label><input id="setCompany" placeholder="نام مجموعه شما"></div>
+        <div class="field"><label>ساعت کارکرد روزانه استاندارد</label>
+          <select id="setBase">
+            <option value="450">۷ ساعت و ۳۰ دقیقه</option>
+            <option value="480">۸ ساعت</option>
+            <option value="420">۷ ساعت</option>
+            <option value="540">۹ ساعت</option>
+          </select>
+        </div>
+        <button class="sbtn" onclick="saveSettings()">💾 ذخیره تنظیمات</button>
+      </div>
+
+      <div class="dgroup">
+        <h3>👤 لیست پرسنل</h3>
+        <div class="emp-list" id="empList"></div>
+        <div class="row">
+          <div class="field" style="flex:2; margin-bottom:0"><input id="newEmpName" placeholder="نام کارمند جدید"></div>
+          <button class="sbtn" style="flex:1" onclick="addEmployee()">➕ افزودن</button>
+        </div>
+      </div>
+
+      <div class="dgroup">
+        <h3>💾 پشتیبان‌گیری</h3>
+        <div class="row" style="gap:.5rem; margin-bottom:.8rem">
+          <button class="sbtn green" onclick="downloadBackup()">⬇ دریافت بک‌آپ</button>
+          <button class="sbtn gray" onclick="document.getElementById('restoreFile').click()">⬆ بازیابی</button>
+        </div>
+        <input type="file" id="restoreFile" accept=".json,application/json" style="display:none" onchange="restoreBackup(event)">
+        <button class="sbtn danger" onclick="wipeAll()">🗑 پاکسازی کامل اطلاعات</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="printArea"></div>
+
+<script>
+/* ساخت خودکار فایل Manifest برای حالت Fullscreen مستقلا */
+(function() {
+  var manifestData = {
+    "name": "سیستم تردد",
+    "short_name": "تردد",
+    "start_url": "./index.html",
+    "display": "standalone",
+    "background_color": "#f3f0e8",
+    "theme_color": "#f3f0e8",
+    "icons": [{
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232563eb'/><circle cx='50' cy='50' r='35' fill='none' stroke='%23ffffff' stroke-width='6'/><polyline points='50,25 50,50 65,50' fill='none' stroke='%23ffffff' stroke-width='6' stroke-linecap='round'/></svg>",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }]
+  };
+  var stringManifest = JSON.stringify(manifestData);
+  var blob = new Blob([stringManifest], {type: 'application/json'});
+  var manifestURL = URL.createObjectURL(blob);
+  var link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = manifestURL;
+  document.getElementsByTagName('head')[0].appendChild(link);
+})();
+
+/* ================== صدای کلیک کلید ================== */
+var audioCtx = null;
+function playRealClickSound(type) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    var now = audioCtx.currentTime;
+    
+    if (type === 'down') {
+      var osc1 = audioCtx.createOscillator();
+      var gain1 = audioCtx.createGain();
+      osc1.type = 'triangle';
+      osc1.frequency.setValueAtTime(240, now);
+      osc1.frequency.exponentialRampToValueAtTime(60, now + 0.035);
+      gain1.gain.setValueAtTime(0.7, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.035);
+
+      var bufferSize = audioCtx.sampleRate * 0.015;
+      var buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      var data = buffer.getChannelData(0);
+      for (var i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
+      var noise = audioCtx.createBufferSource();
+      noise.buffer = buffer;
+      var noiseFilter = audioCtx.createBiquadFilter();
+      noiseFilter.type = 'bandpass';
+      noiseFilter.frequency.value = 1200;
+      var noiseGain = audioCtx.createGain();
+      noiseGain.gain.setValueAtTime(0.3, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.015);
+      noise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(audioCtx.destination);
+      noise.start(now);
+    } else {
+      var osc2 = audioCtx.createOscillator();
+      var gain2 = audioCtx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(320, now);
+      osc2.frequency.exponentialRampToValueAtTime(140, now + 0.025);
+      gain2.gain.setValueAtTime(0.4, now);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.start(now);
+      osc2.stop(now + 0.025);
+    }
+  } catch(e) {}
+}
+
+/* ================== تاریخ شمسی ================== */
+function div(a,b){return ~~(a/b)}
+function mod(a,b){return a-~~(a/b)*b}
+function jalCal(jy){
+  var breaks=[-61,9,38,199,426,686,756,818,1111,1181,1210,1635,2060,2097,2192,2262,2324,2394,2456,3178];
+  var bl=breaks.length, gy=jy+621, leapJ=-14, jp=breaks[0], jm, jump, n, i;
+  if(jy<jp||jy>=breaks[bl-1]) throw new Error('سال شمسی نامعتبر');
+  for(i=1;i<bl;i+=1){ jm=breaks[i]; jump=jm-jp; if(jy<jm) break;
+    leapJ=leapJ+div(jump,33)*8+div(mod(jump,33),4); jp=jm; }
+  n=jy-jp;
+  leapJ=leapJ+div(n,33)*8+div(mod(n,33)+3,4);
+  if(mod(jump,33)===4&&jump-n===4) leapJ+=1;
+  var leapG=div(gy,4)-div((div(gy,100)+1)*3,4)-150;
+  var march=20+leapJ-leapG;
+  if(jump-n<6) n=n-jump+div(jump+4,33)*33;
+  var leap=mod(mod(n+1,33)-1,4); if(leap===-1) leap=4;
+  return {leap:leap, gy:gy, march:march};
+}
+function g2d(gy,gm,gd){
+  var d=div((gy+div(gm-8,6)+100100)*1461,4)+div(153*mod(gm+9,12)+2,5)+gd-34840408;
+  return d-div(div(gy+100100+div(gm-8,6),100)*3,4)+752;
+}
+function d2g(jdn){
+  var j=4*jdn+139361631;
+  j=j+div(div(4*jdn+183187720,146097)*3,4)*4-3908;
+  var i=div(mod(j,1461),4)*5+308;
+  return {gy:div(j,1461)-100100+div(8-mod(div(i,153),12)-1,6), gm:mod(div(i,153),12)+1, gd:mod(mod(i,153),5)+1};
+}
+function j2d(jy,jm,jd){
+  var r=jalCal(jy);
+  return g2d(r.gy,3,r.march)+(jm-1)*31-div(jm,7)*(jm-7)+jd-1;
+}
+function d2j(jdn){
+  var gy=d2g(jdn).gy, jy=gy-621, r=jalCal(jy), jdn1f=g2d(gy,3,r.march), k=jdn-jdn1f, jm, jd;
+  if(k>=0){ if(k<=185){ jm=1+div(k,31); jd=mod(k,31)+1; return {jy:jy,jm:jm,jd:jd}; } else k-=186; }
+  else { jy-=1; k+=179; if(jalCal(jy).leap===1) k+=1; }
+  jm=7+div(k,30); jd=mod(k,30)+1;
+  return {jy:jy,jm:jm,jd:jd};
+}
+function jalaliMonthLength(jy,jm){
+  if(jm<=6) return 31; if(jm<=11) return 30;
+  return jalCal(jy).leap===1?30:29;
+}
+
+/* ================== ابزارها ================== */
+function tehranNow(){ return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tehran'})); }
+function todayJalali(){ var g=tehranNow(); return d2j(g2d(g.getFullYear(),g.getMonth()+1,g.getDate())); }
+function pad2(n){ return (n<10?'0':'')+n; }
+function fa(n){ return Number(n).toLocaleString('fa-IR',{useGrouping:false}); }
+function faTime(hm){ if(!hm) return '—'; var p=hm.split(':'); return fa(pad2(+p[0]))+':'+fa(pad2(+p[1])); }
+function faDate(j){ return fa(j.jy)+'/'+fa(pad2(j.jm))+'/'+fa(pad2(j.jd)); }
+function jkey(j){ return j.jy+'/'+pad2(j.jm)+'/'+pad2(j.jd); }
+function jWeekday(j){ return WD[(j2d(j.jy,j.jm,j.jd)+1)%7]; }
+function fmtDur(min){
+  if(min==null||isNaN(min)) return '۰ ساعت و ۰ دقیقه';
+  min=Math.round(min); var h=div(min,60), m=mod(min,60);
+  return fa(h)+' ساعت و '+fa(m)+' دقیقه';
+}
+function fmtHM(min){
+  if(min==null||isNaN(min)) return '—';
+  return fa(pad2(div(Math.round(min),60)))+':'+fa(pad2(mod(Math.round(min),60)));
+}
+function toMin(hm){ if(!hm) return null; var p=hm.split(':'); return (+p[0])*60+(+p[1]); }
+
+/* ================== ذخیره‌سازی ================== */
+var LS='safir_neu_records', LSS='safir_neu_settings';
+function loadAll(){ try{ return JSON.parse(localStorage.getItem(LS))||{} }catch(e){ return {} } }
+function saveAll(r){ localStorage.setItem(LS, JSON.stringify(r)); }
+function getRec(empId, jd){ var all=loadAll(); return all[empId] ? (all[empId][jkey(jd)]||null) : null; }
+function putRec(empId, jd, rec){
+  var all=loadAll(); if(!all[empId]) all[empId]={};
+  all[empId][jkey(jd)]=rec; saveAll(all);
+}
+function getPairs(rec){
+  if(!rec) return [];
+  if(rec.pairs && rec.pairs.length) return rec.pairs;
+  if(rec.in || rec.out) return [{in:rec.in||null, out:rec.out||null}];
+  return [];
+}
+
+function loadSettings(){
+  var s={company:'', base:450, employees:[{id:'e1', name:'کارمند نمونه'}], activeEmp:'e1'};
+  try{ var x=JSON.parse(localStorage.getItem(LSS)); if(x) s=Object.assign(s,x); }catch(e){}
+  if(!s.employees||!s.employees.length) s.employees=[{id:'e1', name:'کارمند نمونه'}];
+  if(!s.employees.some(function(e){return e.id===s.activeEmp})) s.activeEmp=s.employees[0].id;
+  return s;
+}
+function saveSettingsObj(s){ localStorage.setItem(LSS, JSON.stringify(s)); }
+var settings=loadSettings();
+
+function empName(id){
+  var e=settings.employees.filter(function(x){return x.id===id;})[0];
+  return e?e.name:'—';
+}
+
+/* ================== ساعت زنده ================== */
+var WD=['یکشنبه','دوشنبه','سهشنبه','چهارشنبه','پنجشنبه','جمعه','شنبه'];
+function tick(){
+  var g=tehranNow();
+  document.getElementById('liveClock').textContent =
+    WD[g.getDay()]+' | '+faDate(d2j(g2d(g.getFullYear(),g.getMonth()+1,g.getDate())))+
+    ' | '+fa(pad2(g.getHours()))+':'+fa(pad2(g.getMinutes()))+':'+fa(pad2(g.getSeconds()));
+  renderToday();
+}
+setInterval(tick,1000);
+
+/* ================== انتخابگر کارمندان ================== */
+function fillEmpSels(){
+  var h=settings.employees.map(function(e){
+    return '<option value="'+e.id+'"'+(e.id===settings.activeEmp?' selected':'')+'>'+e.name+'</option>';}).join('');
+  document.getElementById('mEmp').innerHTML=h;
+  document.getElementById('repEmp').innerHTML='<option value="all">همه کارمندان</option>'+h;
+}
+function onManualEmpChange(){
+  settings.activeEmp=document.getElementById('mEmp').value;
+  saveSettingsObj(settings); renderToday();
+}
+
+/* ================== کلید اصلی و نمایش ================== */
+function renderToday(){
+  var empId=settings.activeEmp, j=todayJalali(), rec=getRec(empId,j);
+  var pairs=getPairs(rec);
+  var st=document.getElementById('todayStatus');
+  var btn=document.getElementById('mainButton');
+  var g=tehranNow(), nowMin=g.getHours()*60+g.getMinutes();
+
+  var openPair = pairs.length && !pairs[pairs.length-1].out;
+
+  if(openPair){
+    btn.textContent = 'خروج';
+    btn.classList.add('pressed');
+  } else {
+    btn.textContent = 'ورود';
+    btn.classList.remove('pressed');
+  }
+
+  var empText = empName(empId);
+  var total=0, last=null;
+  pairs.forEach(function(p){
+    if(p.in&&p.out) total+=toMin(p.out)-toMin(p.in);
+    if(p.in) last=p;
+  });
+
+  if(!pairs.length){
+    st.innerHTML = empText + ' — وضعیت: <span class="status-dot red"></span> <b>خارج از مجموعه</b><br>مجموع کارکرد امروز: <b>' + fmtDur(0) + '</b>';
+  } else if(openPair){
+    st.innerHTML = empText + ' — وضعیت: <span class="status-dot green"></span> <b>حاضر در مجموعه</b><br>(آخرین ورود: <b>' + faTime(last.in) + '</b>)<br>مجموع کارکرد امروز: <b>' + fmtDur(total + Math.max(0, nowMin - toMin(last.in))) + '</b>';
+  } else {
+    st.innerHTML = empText + ' — وضعیت: <span class="status-dot red"></span> <b>خارج از مجموعه</b><br>(آخرین خروج: <b>' + faTime(last.out) + '</b>)<br>مجموع کارکرد امروز: <b>' + fmtDur(total) + '</b>';
+  }
+}
+
+function handleButtonClick(){
+  var empId=settings.activeEmp, j=todayJalali(), g=tehranNow();
+  var rec=getRec(empId,j)||{}, pairs=getPairs(rec);
+  var last=pairs[pairs.length-1];
+
+  var isEntering = !(last && last.in && !last.out);
+
+  if(!isEntering) {
+    last.out=pad2(g.getHours())+':'+pad2(g.getMinutes());
+    putRec(empId,j,{pairs:pairs, note:(rec&&rec.note)||''});
+  } else {
+    pairs.push({in:pad2(g.getHours())+':'+pad2(g.getMinutes()), out:null});
+    putRec(empId,j,{pairs:pairs, note:rec.note||''});
+  }
+  renderToday();
+}
+
+/* ================== ثبت دستی ================== */
+function fillYearSel(sel, from, to){
+  var j=todayJalali(), h='';
+  for(var y=from;y<=to;y++) h+='<option value="'+y+'"'+(y===j.jy?' selected':'')+'>'+fa(y)+'</option>';
+  sel.innerHTML=h;
+}
+function jyNow(){ return todayJalali().jy; }
+function initManual(){
+  fillYearSel(document.getElementById('mYear'), jyNow()-5, jyNow()+1);
+  document.getElementById('mMonth').innerHTML=[1,2,3,4,5,6,7,8,9,10,11,12].map(function(m){
+    return '<option value="'+m+'"'+(m===todayJalali().jm?' selected':'')+'>'+fa(m)+'</option>';}).join('');
+  document.getElementById('mEmp').onchange=onManualEmpChange;
+  updateDays();
+  document.getElementById('mYear').onchange=updateDays;
+  document.getElementById('mMonth').onchange=updateDays;
+}
+function updateDays(){
+  var y=+document.getElementById('mYear').value, m=+document.getElementById('mMonth').value;
+  var len=jalaliMonthLength(y,m), h='', cur=todayJalali();
+  for(var d=1;d<=len;d++) h+='<option value="'+d+'"'+(y===cur.jy&&m===cur.jm&&d===cur.jd?' selected':'')+'>'+fa(d)+'</option>';
+  document.getElementById('mDay').innerHTML=h;
+  refreshPairNumbers();
+}
+function refreshPairNumbers(){
+  var rows=document.querySelectorAll('#pairList .pair-row .pIdx');
+  rows.forEach(function(el,i){ el.textContent=fa(i+1); });
+}
+function addPairRow(tIn,tOut){
+  var wrap=document.getElementById('pairList');
+  var row=document.createElement('div');
+  row.className='pair-row';
+  row.innerHTML='<span class="pIdx">'+fa(wrap.children.length+1)+'</span>'+
+    '<input class="pIn" inputmode="numeric" placeholder="ورود 08:30" value="'+(tIn||'')+'">'+
+    '<input class="pOut" inputmode="numeric" placeholder="خروج 17:00" value="'+(tOut||'')+'">'+
+    '<button class="sbtn danger" type="button" style="padding:.5rem .7rem; flex:0 0 auto; width:auto;" onclick="this.parentNode.remove();refreshPairNumbers()">✕</button>';
+  wrap.appendChild(row);
+  refreshPairNumbers();
+}
+function clearManualForm(){
+  document.getElementById('manualTitle').textContent='ثبت / ویرایش دستی';
+  document.getElementById('mNote').value='';
+  var c=todayJalali();
+  document.getElementById('mYear').value=c.jy; document.getElementById('mMonth').value=c.jm; updateDays();
+  document.getElementById('mDay').value=c.jd;
+  document.getElementById('mEmp').value=settings.activeEmp;
+  document.getElementById('pairList').innerHTML='';
+  addPairRow();
+}
+function normTime(v){
+  v=(v||'').trim().replace(/[۰-۹]/g,function(c){return '۰۱۲۳۴۵۶۷۸۹'.indexOf(c);});
+  if(!/^\d{1,2}[:.]\d{1,2}$/.test(v)) return null;
+  var p=v.split(/[:.]/), h=+p[0], m=+p[1];
+  if(h>23||m>59) return null;
+  return pad2(h)+':'+pad2(m);
+}
+function saveManual(){
+  var empId=document.getElementById('mEmp').value;
+  var y=+document.getElementById('mYear').value, m=+document.getElementById('mMonth').value, d=+document.getElementById('mDay').value;
+  var jd={jy:y,jm:m,jd:d};
+  var rows=document.querySelectorAll('#pairList .pair-row');
+  var pairs=[], seen=false;
+  for(var i=0;i<rows.length;i++){
+    var tIn=normTime(rows[i].querySelector('.pIn').value);
+    var tOut=normTime(rows[i].querySelector('.pOut').value);
+    if(!tIn && !tOut) continue;
+    if(!tIn && tOut) return alert('برای خروج '+faTime(tOut)+'، ساعت ورود لازم است.');
+    if(tIn && tOut && toMin(tOut)<=toMin(tIn)) return alert('ساعت خروج باید بعد از ورود باشد.');
+    pairs.push({in:tIn, out:tOut}); seen=true;
+  }
+  if(!seen) return alert('حداقل یک نوبت ورود یا خروج وارد کنید.');
+  putRec(empId,jd,{pairs:pairs, note:document.getElementById('mNote').value.trim()});
+  clearManualForm(); renderReport();
+}
+function editRecord(empId,k){
+  var rec=loadAll()[empId] && loadAll()[empId][k]; if(!rec) return;
+  var p=k.split('/');
+  document.getElementById('mEmp').value=empId;
+  onManualEmpChange();
+  document.getElementById('mYear').value=+p[0];
+  document.getElementById('mMonth').value=+p[1]; updateDays();
+  document.getElementById('mDay').value=+p[2];
+  document.getElementById('pairList').innerHTML='';
+  var ps=getPairs(rec);
+  ps.forEach(function(pr){ addPairRow(pr.in, pr.out); });
+  if(!ps.length) addPairRow();
+  document.getElementById('mNote').value=rec.note||'';
+  document.getElementById('manualTitle').textContent='ویرایش — '+empName(empId)+' — '+k;
+  showTab('manual');
+}
+function delRecord(empId,k){
+  if(!confirm('رکورد حذف شود؟')) return;
+  var all=loadAll(); if(all[empId]) delete all[empId][k]; saveAll(all);
+  renderReport();
+}
+
+/* ================== گزارش ================== */
+function initReport(){
+  var j=todayJalali();
+  document.getElementById('repMonth').innerHTML=[1,2,3,4,5,6,7,8,9,10,11,12].map(function(m){
+    return '<option value="'+m+'"'+(m===j.jm?' selected':'')+'>'+fa(m)+'</option>';}).join('');
+  var h='';
+  for(var y=j.jy-3;y<=j.jy+1;y++) h+='<option value="'+y+'"'+(y===j.jy?' selected':'')+'>'+fa(y)+'</option>';
+  document.getElementById('repYear').innerHTML=h;
+  ['repEmp','repMonth','repYear'].forEach(function(id){
+    document.getElementById(id).onchange=renderReport; });
+}
+function monthRows(y,m,empSel){
+  var all=loadAll(), out=[];
+  Object.keys(all).forEach(function(empId){
+    if(empSel!=='all' && empId!==empSel) return;
+    var recs=all[empId];
+    Object.keys(recs).forEach(function(k){
+      var p=k.split('/');
+      if(+p[0]===y && +p[1]===m)
+        out.push({emp:empId, k:k, jd:{jy:+p[0],jm:+p[1],jd:+p[2]}, rec:recs[k]});
+    });
+  });
+  out.sort(function(a,b){ return a.k<b.k?-1:1; });
+  return out;
+}
+function recCalc(rec){
+  var pairs=getPairs(rec), worked=null, ot=null, ut=null, sum=0, closed=false, any=false;
+  pairs.forEach(function(p){
+    if(p.in) any=true;
+    if(p.in&&p.out){ sum+=toMin(p.out)-toMin(p.in); closed=true; }
+  });
+  if(closed){ worked=sum; ot=Math.max(0,worked-settings.base); ut=Math.max(0,settings.base-worked); }
+  return {worked:worked, ot:closed?ot:null, ut:closed?ut:null, open:any && pairs.some(function(p){return p.in&&!p.out;})};
+}
+function statusOf(rec,c){
+  if(rec.note&&/تعطیل/.test(rec.note)) return 'تعطیل';
+  if(c.open) return 'باز';
+  if(c.worked==null) return '—';
+  if(c.worked>=settings.base) return 'کامل';
+  return 'ناقص';
+}
+function renderReport(){
+  var y=+document.getElementById('repYear').value, m=+document.getElementById('repMonth').value;
+  var empSel=document.getElementById('repEmp').value||'all';
+  var list=monthRows(y,m,empSel);
+  var sumW=0,sumO=0,sumU=0,cntW=0;
+  var withEmp=empSel==='all';
+  var rows=list.map(function(it){
+    var c=recCalc(it.rec);
+    if(c.worked!=null){ sumW+=c.worked; sumO+=c.ot; sumU+=c.ut; cntW++; }
+    var ps=getPairs(it.rec);
+    var ins=ps.map(function(p){return faTime(p.in);}).join('<br>')||'—';
+    var outs=ps.map(function(p){return faTime(p.out);}).join('<br>')||'—';
+    return '<tr>'+(withEmp?'<td>'+empName(it.emp)+'</td>':'')+
+      '<td>'+faDate(it.jd)+'</td><td>'+jWeekday(it.jd)+'</td><td>'+ins+'</td><td>'+outs+'</td>'+
+      '<td>'+fmtHM(c.worked)+'</td><td>'+fmtHM(c.ot)+'</td><td>'+fmtHM(c.ut)+'</td>'+
+      '<td>'+statusOf(it.rec,c)+'</td><td>'+(it.rec.note||'—')+'</td>'+
+      '<td><button class="sbtn gray" style="padding:.2rem .4rem; font-size:.8rem; width:auto;" onclick="editRecord(\''+it.emp+'\',\''+it.k+'\')">✏️</button> '+
+      '<button class="sbtn danger" style="padding:.2rem .4rem; font-size:.8rem; width:auto;" onclick="delRecord(\''+it.emp+'\',\''+it.k+'\')">🗑</button></td></tr>';
+  }).join('');
+  var wrap=document.getElementById('repTableWrap');
+  if(!rows) wrap.innerHTML='<p style="text-align:center; color:var(--text-muted); font-weight:bold;">در این ماه رکوردی ثبت نشده است.</p>';
+  else wrap.innerHTML='<table><thead><tr>'+(withEmp?'<th>کارمند</th>':'')+
+    '<th>تاریخ</th><th>روز</th><th>ورود</th><th>خروج</th><th>کارکرد</th><th>اضافه‌کاری</th><th>کسری</th><th>وضعیت</th><th>توضیح</th><th>عملیات</th></tr></thead><tbody>'+rows+'</tbody>'+
+    '<tfoot><tr><td colspan="'+(withEmp?5:4)+'">جمع ماه ('+fa(cntW)+' روز)</td><td>'+fmtHM(sumW)+'</td><td>'+fmtHM(sumO)+'</td><td>'+fmtHM(sumU)+'</td><td colspan="3"></td></tr></tfoot></table>';
+  document.getElementById('repTotals').innerHTML=
+    '<div>روزها<b>'+fa(cntW)+'</b></div>'+
+    '<div>کارکرد<b>'+fmtHM(sumW)+'</b></div>'+
+    '<div>اضافهکاری<b style="color:var(--green)">'+fmtHM(sumO)+'</b></div>'+
+    '<div>کسری<b style="color:var(--red)">'+fmtHM(sumU)+'</b></div>';
+  renderReport._data={y:y,m:m,list:list,withEmp:withEmp,empSel:empSel};
+}
+function monthName(m){ return ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'][m-1]; }
+
+/* ================== خروجی اکسل و PDF ================== */
+function exportExcel(){
+  var d=renderReport._data; if(!d||!d.list.length) return alert('داده‌ای برای خروجی نیست.');
+  var y=d.y, m=d.m, sumW=0, sumO=0, sumU=0;
+  
+  var companyName = settings.company || '';
+  var selectedEmpName = (d.empSel === 'all') ? 'همه پرسنل' : empName(d.empSel);
+
+  var rows=d.list.map(function(it){
+    var c=recCalc(it.rec);
+    if(c.worked!=null){sumW+=c.worked;sumO+=c.ot;sumU+=c.ut;}
+    var ps=getPairs(it.rec);
+    return '<tr style="color:#000000; font-family:\'Lotus\',Tahoma,sans-serif; font-size:14pt;">'+
+      (d.withEmp?'<td style="border:1px solid #000000; padding:6px; text-align:center; color:#000000;">'+empName(it.emp)+'</td>':'')+
+      '<td style="border:1px solid #000000; padding:6px; text-align:center; color:#000000;">'+faDate(it.jd)+'</td>'+
+      '<td style="border:1px solid #000000; padding:6px; text-align:center; color:#000000;">'+jWeekday(it.jd)+'</td>'+
+      '<td style="border:1px solid #000000; padding:6px; text-align:center; color:#000000;">'+ps.map(function(p){return faTime(p.in);}).join(' ، ')+'</td>'+
+      '<td style="border:1px solid #000000; padding:6px; text-align:center; color:#000000;">'+ps.map(function(p){return faTime(p.out);}).join(' ، ')+'</td>'+
+      '<td style="border:1px solid #000000; padding:6px; text-align:center; color:#000000;">'+fmtHM(c.worked)+'</td>'+
+      '<td style="border:1px solid #000000; padding:6px; text-align:center; color:#000000;">'+fmtHM(c.ot)+'</td>'+
+      '<td style="border:1px solid #000000; padding:6px; text-align:center; color:#000000;">'+fmtHM(c.ut)+'</td>'+
+      '<td style="border:1px solid #000000; padding:6px; text-align:center; color:#000000;">'+statusOf(it.rec,c)+'</td>'+
+      '<td style="border:1px solid #000000; padding:6px; text-align:center; color:#000000;">'+(it.rec.note||'')+'</td>'+
+      '</tr>';
+  }).join('');
+
+  var html='<html dir="rtl" lang="fa"><head><meta charset="UTF-8">'+
+    '<style>body,table,td,th{font-family:"Lotus",Tahoma,sans-serif; font-size:14pt; color:#000000; background:#ffffff;}</style>'+
+    '</head><body style="color:#000000; background:#ffffff; font-family:\'Lotus\',Tahoma,sans-serif; font-size:14pt;">'+
+    '<div style="text-align:center; margin-bottom:15px; color:#000000;">'+
+      (companyName ? '<h2 style="margin:0; font-size:16pt; color:#000000;">نام مجموعه: '+companyName+'</h2>' : '')+
+      '<h3 style="margin:5px 0; font-size:14pt; color:#000000;">گزارش تردد کارمند: '+selectedEmpName+'</h3>'+
+      '<p style="margin:0; font-size:14pt; color:#000000;">مربوط به '+monthName(m)+' ماه سال '+fa(y)+'</p>'+
+    '</div>'+
+    '<table border="1" style="border-collapse:collapse; width:100%; color:#000000; border:1px solid #000000;">'+
+      '<tr style="background-color:#f2f2f2; font-weight:bold; color:#000000; text-align:center;">'+
+        (d.withEmp?'<th style="border:1px solid #000000; padding:6px;">نام کارمند</th>':'')+
+        '<th style="border:1px solid #000000; padding:6px;">تاریخ</th>'+
+        '<th style="border:1px solid #000000; padding:6px;">روز هفته</th>'+
+        '<th style="border:1px solid #000000; padding:6px;">ورود</th>'+
+        '<th style="border:1px solid #000000; padding:6px;">خروج</th>'+
+        '<th style="border:1px solid #000000; padding:6px;">کارکرد</th>'+
+        '<th style="border:1px solid #000000; padding:6px;">اضافه‌کاری</th>'+
+        '<th style="border:1px solid #000000; padding:6px;">کسری</th>'+
+        '<th style="border:1px solid #000000; padding:6px;">وضعیت</th>'+
+        '<th style="border:1px solid #000000; padding:6px;">توضیح</th>'+
+      '</tr>'+
+      rows+
+      '<tr style="font-weight:bold; background-color:#f9f9f9; color:#000000;">'+
+        '<td colspan="'+(d.withEmp?5:4)+'" style="border:1px solid #000000; padding:6px; text-align:center; color:#000000;">مجموع کل</td>'+
+        '<td style="border:1px solid #000000; padding:6px; text-align:center; color:#000000;">'+fmtHM(sumW)+'</td>'+
+        '<td style="border:1px solid #000000; padding:6px; text-align:center; color:#000000;">'+fmtHM(sumO)+'</td>'+
+        '<td style="border:1px solid #000000; padding:6px; text-align:center; color:#000000;">'+fmtHM(sumU)+'</td>'+
+        '<td colspan="2" style="border:1px solid #000000;"></td>'+
+      '</tr>'+
+    '</table></body></html>';
+
+  var blob=new Blob(['\ufeff'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='گزارش-تردد-'+selectedEmpName+'-'+y+'-'+pad2(m)+'.xls';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function exportPDF(){
+  var d=renderReport._data; if(!d||!d.list.length) return alert('داده‌ای برای خروجی نیست.');
+  var y=d.y, m=d.m, sumW=0, sumO=0, sumU=0;
+
+  var companyName = settings.company || '';
+  var selectedEmpName = (d.empSel === 'all') ? 'همه پرسنل' : empName(d.empSel);
+
+  var rows=d.list.map(function(it){
+    var c=recCalc(it.rec);
+    if(c.worked!=null){sumW+=c.worked;sumO+=c.ot;sumU+=c.ut;}
+    var ps=getPairs(it.rec);
+    return '<tr>'+
+      (d.withEmp?'<td>'+empName(it.emp)+'</td>':'')+
+      '<td>'+faDate(it.jd)+'</td>'+
+      '<td>'+jWeekday(it.jd)+'</td>'+
+      '<td>'+ps.map(function(p){return faTime(p.in);}).join('<br>')+'</td>'+
+      '<td>'+ps.map(function(p){return faTime(p.out);}).join('<br>')+'</td>'+
+      '<td>'+fmtHM(c.worked)+'</td>'+
+      '<td>'+fmtHM(c.ot)+'</td>'+
+      '<td>'+fmtHM(c.ut)+'</td>'+
+      '<td>'+statusOf(it.rec,c)+'</td>'+
+      '<td>'+(it.rec.note||'—')+'</td>'+
+      '</tr>';
+  }).join('');
+
+  document.getElementById('printArea').innerHTML=
+    '<div class="pdf-header">'+
+      (companyName ? '<h1>نام مجموعه / شرکت: '+companyName+'</h1>' : '')+
+      '<p><b>نام کارمند:</b> '+selectedEmpName+'</p>'+
+      '<p><b>گزارش تردد:</b> '+monthName(m)+' ماه سال '+fa(y)+'</p>'+
+    '</div>'+
+    '<table>'+
+      '<thead><tr>'+
+        (d.withEmp?'<th>نام کارمند</th>':'')+
+        '<th>تاریخ</th><th>روز هفته</th><th>ورود</th><th>خروج</th>'+
+        '<th>کارکرد</th><th>اضافه‌کاری</th><th>کسری</th><th>وضعیت</th><th>توضیح</th>'+
+      '</tr></thead>'+
+      '<tbody>'+rows+'</tbody>'+
+      '<tfoot><tr>'+
+        '<td colspan="'+(d.withEmp?5:4)+'">مجموع کل</td>'+
+        '<td>'+fmtHM(sumW)+'</td><td>'+fmtHM(sumO)+'</td><td>'+fmtHM(sumU)+'</td>'+
+        '<td colspan="2"></td>'+
+      '</tr></tfoot>'+
+    '</table>';
+
+  setTimeout(function(){ window.print(); }, 150);
+}
+
+/* ================== مدیریت و پشتیبان ================== */
+function downloadBackup(){
+  var data={app:'saat-neu', version:2, exportedAt:new Date().toISOString(), settings:settings, records:loadAll()};
+  var blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='پشتیبان-ساعت-زن-'+faDate(todayJalali()).replace(/\//g,'-')+'.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function restoreBackup(ev){
+  var f=ev.target.files[0]; if(!f) return;
+  var rd=new FileReader();
+  rd.onload=function(){
+    try{
+      var d=JSON.parse(rd.result);
+      if(!d.records) throw 0;
+      saveAll(d.records);
+      if(d.settings){ settings=Object.assign(settings,d.settings); saveSettingsObj(settings); }
+      applySettings(); fillEmpSels(); renderEmpList(); renderReport(); tick();
+    }catch(e){ alert('فایل پشتیبان معتبر نیست.'); }
+  };
+  rd.readAsText(f); ev.target.value='';
+}
+function wipeAll(){
+  if(!confirm('همه اطلاعات حذف شود؟')) return;
+  localStorage.removeItem(LS); renderReport(); tick();
+}
+function renderEmpList(){
+  document.getElementById('empList').innerHTML=settings.employees.map(function(e){
+    return '<div class="emp-item"><span>👤 '+e.name+'</span>'+
+      '<button class="del" onclick="removeEmployee(\''+e.id+'\')">❌</button></div>';
+  }).join('');
+}
+function addEmployee(){
+  var name=document.getElementById('newEmpName').value.trim();
+  if(!name) return alert('نام را وارد کنید.');
+  var id='e'+Date.now();
+  settings.employees.push({id:id, name:name});
+  settings.activeEmp=id;
+  saveSettingsObj(settings); document.getElementById('newEmpName').value='';
+  fillEmpSels(); renderEmpList(); renderToday();
+}
+function removeEmployee(id){
+  if(settings.employees.length<=1) return alert('حداقل یک کارمند باید وجود داشته باشد.');
+  if(!confirm('کارمند حذف شود؟')) return;
+  settings.employees=settings.employees.filter(function(x){return x.id!==id;});
+  var all=loadAll(); delete all[id]; saveAll(all);
+  if(settings.activeEmp===id) settings.activeEmp=settings.employees[0].id;
+  saveSettingsObj(settings);
+  fillEmpSels(); renderEmpList(); renderToday(); renderReport();
+}
+
+function applySettings(){
+  var company = settings.company || '';
+  document.getElementById('setCompany').value=company;
+  document.getElementById('setBase').value=String(settings.base);
+}
+function saveSettings(){
+  settings.company=document.getElementById('setCompany').value.trim();
+  settings.base=+document.getElementById('setBase').value;
+  saveSettingsObj(settings); applySettings();
+}
+
+function showTab(id){
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});
+  document.getElementById(id).classList.add('on');
+  if(id==='report') renderReport();
+  if(id==='manage') renderEmpList();
+  window.scrollTo(0,0);
+}
+function openMenu(){
+  document.getElementById('sideMenu').classList.add('on');
+  document.getElementById('menuOverlay').classList.add('on');
+}
+function closeMenu(){
+  document.getElementById('sideMenu').classList.remove('on');
+  document.getElementById('menuOverlay').classList.remove('on');
+}
+
+/* راه‌اندازی اولیه */
+applySettings(); fillEmpSels(); initManual(); initReport();
+renderEmpList(); clearManualForm(); tick();
+</script>
+</body>
+</html>
+

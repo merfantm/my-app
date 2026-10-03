@@ -16,6 +16,7 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232563eb'/><circle cx='50' cy='50' r='35' fill='none' stroke='%23ffffff' stroke-width='6'/><polyline points='50,25 50,50 65,50' fill='none' stroke='%23ffffff' stroke-width='6' stroke-linecap='round'/></svg>">
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232563eb'/><circle cx='50' cy='50' r='35' fill='none' stroke='%23ffffff' stroke-width='6'/><polyline points='50,25 50,50 65,50' fill='none' stroke='%23ffffff' stroke-width='6' stroke-linecap='round'/></svg>">
 
+<script src="html2pdf.bundle.min.js"></script>
 <style>
 @font-face{
   font-family:'Lotus';
@@ -272,6 +273,16 @@ th{
 .emp-item .del{border:none; background:none; cursor:pointer; font-size:1.1rem; color:var(--red);}
 
 #printArea{display:none;}
+#pdfTmp{position:fixed; left:-12000px; top:0; width:1050px; background:#fff; direction:rtl; padding:16px; box-sizing:border-box;}
+#pdfTmp, #pdfTmp *{color:#000 !important; font-family:'Lotus',Tahoma,sans-serif !important; font-size:12pt !important; line-height:1.5 !important;}
+#pdfTmp table{width:100%; border-collapse:collapse; margin-top:12px; direction:rtl;}
+#pdfTmp th,#pdfTmp td{border:1px solid #000; padding:5px 6px; text-align:center;}
+#pdfTmp th{font-weight:bold; background:#f2f2f2;}
+#pdfTmp tr{page-break-inside:avoid;}
+#pdfTmp .pdf-header{text-align:center; margin-bottom:12px; border-bottom:2px solid #000; padding-bottom:8px;}
+#pdfTmp .pdf-header h1{font-size:16pt !important; font-weight:bold; margin:0 0 6px 0;}
+#pdfTmp .pdf-header p{margin:3px 0;}
+
 @media print{
   body{background:#ffffff !important; color:#000000 !important; padding:0;}
   header,#hamb,#sideMenu,#menuOverlay,main{display:none !important;}
@@ -839,6 +850,26 @@ function renderReport(){
 function monthName(m){ return ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'][m-1]; }
 
 /* ================== خروجی اکسل و PDF ================== */
+/* ===== کمک‌تابع‌های ذخیره و اشتراک فایل در اپ اندروید ===== */
+function isNativeApp(){ try{ return !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()); }catch(e){ return false; } }
+function nativeSaveShare(filename, data, isBase64, title){
+  var P=window.Capacitor.Plugins;
+  var opt={path:filename, data:data, directory:'CACHE'};
+  if(!isBase64) opt.encoding='utf8';
+  return P.Filesystem.writeFile(opt).then(function(r){
+    return P.Share.share({title:title||filename, dialogTitle:title||filename, url:r.uri});
+  }).catch(function(e){
+    if(e && /cancel/i.test(String(e.message||e))) return;
+    alert('خطا در ذخیره فایل: '+(e&&e.message?e.message:e));
+  });
+}
+function browserDownload(blob, filename){
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=filename;
+  a.click(); setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+}
+
 function exportExcel(){
   var d=renderReport._data; if(!d||!d.list.length) return alert('داده‌ای برای خروجی نیست.');
   var y=d.y, m=d.m, sumW=0, sumO=0, sumU=0;
@@ -895,11 +926,12 @@ function exportExcel(){
       '</tr>'+
     '</table></body></html>';
 
+  if(isNativeApp()){
+    nativeSaveShare('Gozaresh-Tardod-'+y+'-'+pad2(m)+'.xls', '\ufeff'+html, false, 'گزارش تردد');
+    return;
+  }
   var blob=new Blob(['\ufeff'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='گزارش-تردد-'+selectedEmpName+'-'+y+'-'+pad2(m)+'.xls';
-  a.click(); URL.revokeObjectURL(a.href);
+  browserDownload(blob,'گزارش-تردد-'+selectedEmpName+'-'+y+'-'+pad2(m)+'.xls');
 }
 
 function exportPDF(){
@@ -947,17 +979,43 @@ function exportPDF(){
       '</tr></tfoot>'+
     '</table>';
 
+  if(isNativeApp() && typeof html2pdf!=='undefined'){
+    var old=document.getElementById('pdfTmp'); if(old) old.remove();
+    var tmp=document.createElement('div');
+    tmp.id='pdfTmp';
+    tmp.innerHTML=document.getElementById('printArea').innerHTML;
+    document.body.appendChild(tmp);
+    var fname='Gozaresh-Tardod-'+y+'-'+pad2(m)+'.pdf';
+    var ready=(document.fonts&&document.fonts.ready)?document.fonts.ready:Promise.resolve();
+    ready.then(function(){
+      return html2pdf().set({
+        margin:[8,8,8,8],
+        image:{type:'jpeg',quality:0.95},
+        html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',windowWidth:1050},
+        jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},
+        pagebreak:{mode:['css','legacy'],avoid:'tr'}
+      }).from(tmp).outputPdf('datauristring');
+    }).then(function(uri){
+      tmp.remove();
+      return nativeSaveShare(fname, uri.split(',')[1], true, 'گزارش تردد PDF');
+    }).catch(function(e){
+      tmp.remove();
+      alert('خطا در ساخت PDF: '+(e&&e.message?e.message:e));
+    });
+    return;
+  }
   setTimeout(function(){ window.print(); }, 150);
 }
 
 /* ================== مدیریت و پشتیبان ================== */
 function downloadBackup(){
   var data={app:'saat-neu', version:2, exportedAt:new Date().toISOString(), settings:settings, records:loadAll()};
-  var blob=new Blob([JSON.stringify(data)],{type:'application/json'});
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='پشتیبان-ساعت-زن-'+faDate(todayJalali()).replace(/\//g,'-')+'.json';
-  a.click(); URL.revokeObjectURL(a.href);
+  var fnm='پشتیبان-ساعت-زن-'+faDate(todayJalali()).replace(/\//g,'-')+'.json';
+  if(isNativeApp()){
+    nativeSaveShare('Backup-'+new Date().toISOString().slice(0,10)+'.json', JSON.stringify(data), false, 'پشتیبان');
+    return;
+  }
+  browserDownload(new Blob([JSON.stringify(data)],{type:'application/json'}), fnm);
 }
 function restoreBackup(ev){
   var f=ev.target.files[0]; if(!f) return;
@@ -1035,4 +1093,3 @@ renderEmpList(); clearManualForm(); tick();
 </script>
 </body>
 </html>
-
